@@ -1,6 +1,13 @@
-# TuckerNuts_ComfyUI
+<p align="center">
+  <img src="assets/logo.svg" alt="TuckerNuts ComfyUI" width="400"/>
+</p>
 
-A collection of custom nodes for [ComfyUI](https://github.com/comfyanonymous/ComfyUI).
+<p align="center">
+  A collection of custom nodes for <a href="https://github.com/comfyanonymous/ComfyUI">ComfyUI</a>.<br/>
+  <i>Named after Tucker, the Staffordshire Terrier.</i>
+</p>
+
+---
 
 ## Installation
 

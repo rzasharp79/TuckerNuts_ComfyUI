@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 160" width="400" height="160">
+  <defs>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1"/>
+      <stop offset="100%" style="stop-color:#8b5cf6"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Staffie head silhouette - minimalist geometric style -->
+  <g transform="translate(55, 18) scale(0.85)">
+    <!-- Broad skull -->
+    <path d="M40 45 Q40 20 65 15 Q75 13 80 18 L85 10 Q90 5 95 12 L92 22 Q105 20 115 15 L120 8 Q125 3 128 12 L125 22 Q135 25 138 40 Q140 55 135 70 Q130 82 120 88 Q110 95 95 98 L85 100 Q75 102 65 100 Q50 96 42 82 Q38 70 40 45 Z" fill="url(#accent)"/>
+    <!-- Eye -->
+    <circle cx="72" cy="48" r="5" fill="#1e1b4b"/>
+    <circle cx="72" cy="47" r="1.5" fill="white" opacity="0.8"/>
+    <!-- Eye 2 -->
+    <circle cx="105" cy="48" r="5" fill="#1e1b4b"/>
+    <circle cx="105" cy="47" r="1.5" fill="white" opacity="0.8"/>
+    <!-- Nose -->
+    <ellipse cx="88" cy="75" rx="10" ry="7" fill="#1e1b4b"/>
+    <circle cx="84" cy="73" r="2" fill="#312e81" opacity="0.5"/>
+    <circle cx="92" cy="73" r="2" fill="#312e81" opacity="0.5"/>
+    <!-- Mouth line -->
+    <path d="M88 82 Q88 88 82 90" fill="none" stroke="#1e1b4b" stroke-width="2" stroke-linecap="round"/>
+    <path d="M88 82 Q88 88 94 90" fill="none" stroke="#1e1b4b" stroke-width="2" stroke-linecap="round"/>
+    <!-- Collar / node connector hint -->
+    <rect x="60" y="98" width="57" height="6" rx="3" fill="#1e1b4b" opacity="0.3"/>
+    <!-- Node connection dots on collar -->
+    <circle cx="68" cy="101" r="3" fill="#1e1b4b" opacity="0.6"/>
+    <circle cx="88" cy="101" r="3" fill="#1e1b4b" opacity="0.6"/>
+    <circle cx="108" cy="101" r="3" fill="#1e1b4b" opacity="0.6"/>
+  </g>
+
+  <!-- Text -->
+  <text x="200" y="68" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="30" font-weight="700" fill="#e2e8f0" text-anchor="middle" letter-spacing="1">
+    TuckerNuts
+  </text>
+  <text x="200" y="92" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="13" fill="#94a3b8" text-anchor="middle" letter-spacing="3">
+    COMFYUI NODES
+  </text>
+
+  <!-- Decorative node connection lines -->
+  <g stroke="#6366f1" stroke-width="1" opacity="0.3">
+    <line x1="280" y1="55" x2="310" y2="45"/>
+    <line x1="310" y1="45" x2="340" y2="55"/>
+    <line x1="280" y1="85" x2="310" y2="95"/>
+    <line x1="310" y1="95" x2="340" y2="85"/>
+  </g>
+  <!-- Small node dots -->
+  <g fill="#6366f1" opacity="0.4">
+    <circle cx="280" cy="55" r="3"/>
+    <circle cx="310" cy="45" r="3"/>
+    <circle cx="340" cy="55" r="3"/>
+    <circle cx="280" cy="85" r="3"/>
+    <circle cx="310" cy="95" r="3"/>
+    <circle cx="340" cy="85" r="3"/>
+  </g>
+</svg>

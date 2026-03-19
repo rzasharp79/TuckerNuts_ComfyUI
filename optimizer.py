@@ -14,6 +14,7 @@ from PIL import Image
 
 from .scorer import AestheticScorer
 from .db import save_trial
+from .status import StatusCollector
 
 # Suppress Optuna's verbose logging
 optuna.logging.set_verbosity(optuna.logging.WARNING)
@@ -136,12 +137,16 @@ def run_optimization(
     prompts_per_trial: int,
     seed: int,
     top_k_verify: int,
+    status: StatusCollector | None = None,
 ) -> dict:
     """Run the full Bayesian optimization pipeline.
 
     Returns a dict with keys: steps, cfg, sampler_name, scheduler, mean_score,
     native_resolution.
     """
+    if status is None:
+        status = StatusCollector(max_trials)
+
     prompt_bank = _load_prompt_bank()
     rng = random.Random(seed)
     scorer = AestheticScorer()
@@ -156,7 +161,7 @@ def run_optimization(
     # ------------------------------------------------------------------
     # Phase 1 — Coarse search at 256x256
     # ------------------------------------------------------------------
-    print(f"[AutoTune] Phase 1: Coarse search ({max_trials} trials at 256x256)")
+    status.log(f"Phase 1: Coarse search ({max_trials} trials at 256x256)")
 
     coarse_results = []
 
@@ -196,7 +201,7 @@ def run_optimization(
                     score = scorer.score(img)
                     scores.append(score)
                 except Exception as e:
-                    print(f"[AutoTune] Scoring failed: {e}")
+                    status.log(f"Scoring failed: {e}")
 
         if not scores:
             return 0.0
@@ -228,6 +233,12 @@ def run_optimization(
             }
         )
 
+        status.trial_complete(
+            trial.number,
+            {"steps": steps, "cfg": cfg, "sampler_name": sampler_name, "scheduler": scheduler},
+            mean_score,
+        )
+
         return mean_score
 
     study = optuna.create_study(
@@ -242,6 +253,7 @@ def run_optimization(
 
     if not top_candidates:
         scorer.unload()
+        status.log("ERROR: No valid trials completed. Cannot optimize.")
         raise RuntimeError("[AutoTune] No valid trials completed. Cannot optimize.")
 
     # ------------------------------------------------------------------
@@ -249,8 +261,8 @@ def run_optimization(
     # ------------------------------------------------------------------
     native_w, native_h = _detect_native_resolution(model, checkpoint_path)
     native_res_str = f"{native_w}x{native_h}"
-    print(
-        f"[AutoTune] Phase 2: Verifying top {len(top_candidates)} candidates "
+    status.log(
+        f"Phase 2: Verifying top {len(top_candidates)} candidates "
         f"at {native_res_str}"
     )
 
@@ -283,12 +295,17 @@ def run_optimization(
                     native_h,
                 )
             except torch.cuda.OutOfMemoryError:
-                print(
-                    "[AutoTune] OOM during Phase 2 verification. "
-                    "Falling back to coarse-phase winner."
+                status.log(
+                    "OOM during Phase 2 verification. "
+                    "Decision: Falling back to coarse-phase winner."
                 )
                 scorer.unload()
                 winner = coarse_results[0]
+                status.log(
+                    f"Final result (coarse fallback): steps={winner['steps']}, "
+                    f"cfg={winner['cfg']:.2f}, sampler={winner['sampler_name']}, "
+                    f"scheduler={winner['scheduler']}, score={winner['mean_score']:.4f}"
+                )
                 return {
                     "steps": winner["steps"],
                     "cfg": winner["cfg"],
@@ -303,7 +320,7 @@ def run_optimization(
                     score = scorer.score(img)
                     scores.append(score)
                 except Exception as e:
-                    print(f"[AutoTune] Scoring failed during verification: {e}")
+                    status.log(f"Scoring failed during verification: {e}")
 
         if scores:
             mean_score = float(np.mean(scores))
@@ -324,8 +341,8 @@ def run_optimization(
             resolution=native_res_str,
         )
 
-        print(
-            f"[AutoTune]   Candidate {idx + 1}: "
+        status.log(
+            f"Candidate {idx + 1}/{len(top_candidates)}: "
             f"steps={candidate['steps']}, cfg={candidate['cfg']:.2f}, "
             f"sampler={candidate['sampler_name']}, scheduler={candidate['scheduler']}, "
             f"score={mean_score:.4f}"
@@ -348,10 +365,10 @@ def run_optimization(
     if coarse_results:
         score_range = coarse_results[0]["mean_score"] - coarse_results[-1]["mean_score"]
         if score_range < 0.1 and len(coarse_results) > 1:
-            print(
-                "[AutoTune] WARNING: All trials scored nearly identically. "
+            status.log(
+                "WARNING: All trials scored nearly identically. "
                 "Checkpoint may be insensitive to parameter changes. "
-                "Returning fastest combo (lowest steps)."
+                "Decision: Returning fastest combo (lowest steps)."
             )
             # Pick lowest steps among top candidates
             top_candidates.sort(key=lambda x: x["steps"])
@@ -364,5 +381,11 @@ def run_optimization(
                 "mean_score": fastest["mean_score"],
                 "native_resolution": native_res_str,
             }
+
+    status.log(
+        f"Optimization complete. Best result: steps={best_candidate['steps']}, "
+        f"cfg={best_candidate['cfg']:.2f}, sampler={best_candidate['sampler_name']}, "
+        f"scheduler={best_candidate['scheduler']}, score={best_candidate['mean_score']:.4f}"
+    )
 
     return best_candidate

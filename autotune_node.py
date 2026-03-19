@@ -6,6 +6,7 @@ import folder_paths
 from . import db
 from .hasher import fast_checkpoint_hash, checkpoint_display_name
 from .optimizer import run_optimization
+from .status import StatusCollector
 
 
 class AutoTuneSampler:
@@ -39,8 +40,8 @@ class AutoTuneSampler:
             }
         }
 
-    RETURN_TYPES = ("INT", "FLOAT", comfy.samplers.KSampler.SAMPLERS, comfy.samplers.KSampler.SCHEDULERS)
-    RETURN_NAMES = ("steps", "cfg", "sampler_name", "scheduler")
+    RETURN_TYPES = ("INT", "FLOAT", comfy.samplers.KSampler.SAMPLERS, comfy.samplers.KSampler.SCHEDULERS, "STRING")
+    RETURN_NAMES = ("steps", "cfg", "sampler_name", "scheduler", "status")
     FUNCTION = "execute"
     CATEGORY = "sampling"
 
@@ -57,12 +58,14 @@ class AutoTuneSampler:
     ):
         db.init_db()
 
+        status = StatusCollector(max_trials)
+
         # Find the checkpoint file path
         checkpoint_path = self._find_checkpoint_path(model)
         ckpt_hash = fast_checkpoint_hash(checkpoint_path)
         ckpt_name = checkpoint_display_name(checkpoint_path)
 
-        print(f"[AutoTune] Checkpoint: {ckpt_name} (hash: {ckpt_hash[:16]}...)")
+        status.log(f"Checkpoint: {ckpt_name} (hash: {ckpt_hash[:16]}...)")
 
         # Check cache
         cached = db.get_cached_params(ckpt_hash)
@@ -73,18 +76,24 @@ class AutoTuneSampler:
                     f"[AutoTune] No cached results found for {ckpt_name}. "
                     f"Run with mode='optimize' first."
                 )
-            print(f"[AutoTune] Returning cached results for {ckpt_name}")
+            status.log(f"Returning cached results for {ckpt_name}")
+            status.log(
+                f"Cached: steps={cached['steps']}, cfg={cached['cfg']:.2f}, "
+                f"sampler={cached['sampler_name']}, scheduler={cached['scheduler']}, "
+                f"score={cached['mean_score']:.4f}"
+            )
             return (
                 cached["steps"],
                 cached["cfg"],
                 cached["sampler_name"],
                 cached["scheduler"],
+                status.report(),
             )
 
         # mode == "optimize"
         if cached is not None:
-            print(
-                f"[AutoTune] Cached results exist for {ckpt_name}, "
+            status.log(
+                f"Cached results exist for {ckpt_name}, "
                 f"but proceeding with re-optimization."
             )
 
@@ -98,6 +107,7 @@ class AutoTuneSampler:
             prompts_per_trial=prompts_per_trial,
             seed=seed,
             top_k_verify=top_k_verify,
+            status=status,
         )
 
         # Phase 3 — Persist
@@ -114,18 +124,14 @@ class AutoTuneSampler:
             prompts_per_trial=prompts_per_trial,
         )
 
-        print(
-            f"[AutoTune] Optimization complete for {ckpt_name}:\n"
-            f"  steps={result['steps']}, cfg={result['cfg']:.2f}, "
-            f"sampler={result['sampler_name']}, scheduler={result['scheduler']}, "
-            f"score={result['mean_score']:.4f}"
-        )
+        status.log(f"Results saved to cache for {ckpt_name}.")
 
         return (
             result["steps"],
             result["cfg"],
             result["sampler_name"],
             result["scheduler"],
+            status.report(),
         )
 
     @staticmethod

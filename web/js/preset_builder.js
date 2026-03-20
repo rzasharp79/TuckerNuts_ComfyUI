@@ -15,9 +15,15 @@ app.registerExtension({
     async function populateFromPreset() {
       if (populating) return;
       const presetName = presetWidget.value;
-      const mode = modeWidget.value;
 
-      if (mode !== "edit" || presetName === "New Preset") return;
+      if (presetName === "New Preset") {
+        modeWidget.value = "save";
+        app.graph.setDirtyCanvas(true, true);
+        return;
+      }
+
+      // Selecting a real preset switches to edit mode and loads values
+      modeWidget.value = "edit";
 
       try {
         populating = true;
@@ -40,16 +46,10 @@ app.registerExtension({
       }
     }
 
-    // Hook into widget value changes via callback chaining
+    // Hook into preset_name widget changes
     const origPresetCb = presetWidget.callback;
     presetWidget.callback = function (...args) {
       if (origPresetCb) origPresetCb.apply(this, args);
-      populateFromPreset();
-    };
-
-    const origModeCb = modeWidget.callback;
-    modeWidget.callback = function (...args) {
-      if (origModeCb) origModeCb.apply(this, args);
       populateFromPreset();
     };
   },

@@ -26,9 +26,9 @@ def _save_presets(data: dict) -> None:
 
 
 def _preset_names() -> list[str]:
-    """Return sorted preset names with 'New Preset' sentinel at the end."""
+    """Return sorted preset names with 'New Preset' sentinel at the start."""
     names = sorted(_load_presets().keys())
-    return names + ["New Preset"] if names else ["New Preset"]
+    return ["New Preset"] + names if names else ["New Preset"]
 
 
 @PromptServer.instance.routes.get("/tuckernuts/presets")

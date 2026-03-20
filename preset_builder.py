@@ -1,6 +1,9 @@
 import json
 import os
 
+from aiohttp import web
+from server import PromptServer
+
 import comfy.samplers
 import folder_paths
 
@@ -26,6 +29,22 @@ def _preset_names() -> list[str]:
     """Return sorted preset names with 'New Preset' sentinel at the end."""
     names = sorted(_load_presets().keys())
     return names + ["New Preset"] if names else ["New Preset"]
+
+
+@PromptServer.instance.routes.get("/tuckernuts/presets")
+async def get_presets(request):
+    """API endpoint that returns all saved presets."""
+    return web.json_response(_load_presets())
+
+
+@PromptServer.instance.routes.get("/tuckernuts/preset/{name}")
+async def get_preset(request):
+    """API endpoint that returns a single preset by name."""
+    name = request.match_info["name"]
+    presets = _load_presets()
+    if name not in presets:
+        return web.json_response({"error": f"Preset '{name}' not found"}, status=404)
+    return web.json_response(presets[name])
 
 
 class PresetBuilder:

@@ -2,7 +2,6 @@ import json
 import os
 
 import comfy.samplers
-import comfy.sd
 import folder_paths
 
 PRESETS_FILE = os.path.join(os.path.dirname(__file__), "presets.json")
@@ -29,8 +28,8 @@ def _preset_names() -> list[str]:
     return names + ["New Preset"] if names else ["New Preset"]
 
 
-class PresetArchitect:
-    """ComfyUI node for saving, loading, and deleting sampling parameter presets."""
+class PresetBuilder:
+    """ComfyUI node for saving, editing, and deleting sampling parameter presets."""
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -38,7 +37,7 @@ class PresetArchitect:
             "required": {
                 "preset_name": (_preset_names(),),
                 "new_preset_name": ("STRING", {"default": ""}),
-                "mode": (["use", "save", "delete"],),
+                "mode": (["save", "delete", "edit"],),
                 "checkpoint": (folder_paths.get_filename_list("checkpoints"),),
                 "steps": (
                     "INT",
@@ -65,30 +64,8 @@ class PresetArchitect:
             }
         }
 
-    RETURN_TYPES = (
-        "MODEL",
-        "CLIP",
-        "VAE",
-        "INT",
-        "FLOAT",
-        "INT",
-        comfy.samplers.KSampler.SAMPLERS,
-        comfy.samplers.KSampler.SCHEDULERS,
-        "STRING",
-        "STRING",
-    )
-    RETURN_NAMES = (
-        "model",
-        "clip",
-        "vae",
-        "steps",
-        "cfg",
-        "clip_skip",
-        "sampler_name",
-        "scheduler",
-        "positive_mod",
-        "negative_mod",
-    )
+    RETURN_TYPES = ()
+    OUTPUT_NODE = True
     FUNCTION = "execute"
     CATEGORY = "TuckerNuts"
 
@@ -96,22 +73,6 @@ class PresetArchitect:
     def IS_CHANGED(cls, **kwargs):
         # Force re-evaluation so the preset dropdown stays current
         return float("NaN")
-
-    @staticmethod
-    def _load_checkpoint(ckpt_name: str):
-        """Load a checkpoint by filename and return (model, clip, vae)."""
-        ckpt_path = folder_paths.get_full_path("checkpoints", ckpt_name)
-        if ckpt_path is None:
-            raise RuntimeError(
-                f"[PresetArchitect] Checkpoint not found: {ckpt_name}"
-            )
-        out = comfy.sd.load_checkpoint_guess_config(
-            ckpt_path,
-            output_vae=True,
-            output_clip=True,
-        )
-        # Returns (model, clip, vae, clipvision)
-        return out[0], out[1], out[2]
 
     def execute(
         self,
@@ -129,29 +90,7 @@ class PresetArchitect:
     ):
         presets = _load_presets()
 
-        if mode == "use":
-            if preset_name == "New Preset" or preset_name not in presets:
-                raise RuntimeError(
-                    f"[PresetArchitect] No preset selected to use. "
-                    f"Select an existing preset or save one first."
-                )
-            p = presets[preset_name]
-            print(f"[PresetArchitect] Loaded preset: {preset_name}")
-            model, clip, vae = self._load_checkpoint(p["checkpoint"])
-            return (
-                model,
-                clip,
-                vae,
-                p["steps"],
-                p["cfg"],
-                p["clip_skip"],
-                p["sampler"],
-                p["scheduler"],
-                p["positive_mod"],
-                p["negative_mod"],
-            )
-
-        elif mode == "save":
+        if mode == "save":
             effective_name = (
                 new_preset_name.strip()
                 if preset_name == "New Preset"
@@ -159,7 +98,7 @@ class PresetArchitect:
             )
             if not effective_name:
                 raise RuntimeError(
-                    "[PresetArchitect] Preset name cannot be empty. "
+                    "[PresetBuilder] Preset name cannot be empty. "
                     "Enter a name in 'new_preset_name' when using 'New Preset'."
                 )
 
@@ -174,42 +113,54 @@ class PresetArchitect:
                 "negative_mod": negative_mod,
             }
             _save_presets(presets)
-            print(f"[PresetArchitect] Saved preset: {effective_name}")
-            model, clip, vae = self._load_checkpoint(checkpoint)
-            return (
-                model,
-                clip,
-                vae,
-                steps,
-                round(cfg, 2),
-                clip_skip,
-                sampler,
-                scheduler,
-                positive_mod,
-                negative_mod,
-            )
+            print(f"[PresetBuilder] Saved preset: {effective_name}")
+
+        elif mode == "edit":
+            if preset_name == "New Preset" or preset_name not in presets:
+                raise RuntimeError(
+                    f"[PresetBuilder] Cannot edit: preset '{preset_name}' not found. "
+                    f"Select an existing preset to edit."
+                )
+
+            new_name = new_preset_name.strip()
+            if new_name and new_name != preset_name:
+                del presets[preset_name]
+                presets[new_name] = {
+                    "checkpoint": checkpoint,
+                    "steps": steps,
+                    "cfg": round(cfg, 2),
+                    "clip_skip": clip_skip,
+                    "sampler": sampler,
+                    "scheduler": scheduler,
+                    "positive_mod": positive_mod,
+                    "negative_mod": negative_mod,
+                }
+                _save_presets(presets)
+                print(f"[PresetBuilder] Renamed '{preset_name}' to '{new_name}' and updated values")
+            else:
+                presets[preset_name] = {
+                    "checkpoint": checkpoint,
+                    "steps": steps,
+                    "cfg": round(cfg, 2),
+                    "clip_skip": clip_skip,
+                    "sampler": sampler,
+                    "scheduler": scheduler,
+                    "positive_mod": positive_mod,
+                    "negative_mod": negative_mod,
+                }
+                _save_presets(presets)
+                print(f"[PresetBuilder] Updated preset: {preset_name}")
 
         elif mode == "delete":
             if preset_name == "New Preset" or preset_name not in presets:
                 raise RuntimeError(
-                    f"[PresetArchitect] Cannot delete: preset '{preset_name}' not found."
+                    f"[PresetBuilder] Cannot delete: preset '{preset_name}' not found."
                 )
             del presets[preset_name]
             _save_presets(presets)
-            print(f"[PresetArchitect] Deleted preset: {preset_name}")
-            # Load the currently selected checkpoint as fallback output
-            model, clip, vae = self._load_checkpoint(checkpoint)
-            return (
-                model,
-                clip,
-                vae,
-                20,
-                7.50,
-                -1,
-                comfy.samplers.KSampler.SAMPLERS[0],
-                comfy.samplers.KSampler.SCHEDULERS[0],
-                "",
-                "",
-            )
+            print(f"[PresetBuilder] Deleted preset: {preset_name}")
 
-        raise RuntimeError(f"[PresetArchitect] Unknown mode: {mode}")
+        else:
+            raise RuntimeError(f"[PresetBuilder] Unknown mode: {mode}")
+
+        return {}

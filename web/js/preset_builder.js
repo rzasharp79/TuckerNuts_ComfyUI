@@ -8,7 +8,8 @@ app.registerExtension({
 
     const presetWidget = node.widgets.find((w) => w.name === "preset_name");
     const modeWidget = node.widgets.find((w) => w.name === "mode");
-    if (!presetWidget || !modeWidget) return;
+    const newNameWidget = node.widgets.find((w) => w.name === "new_preset_name");
+    if (!presetWidget || !modeWidget || !newNameWidget) return;
 
     let populating = false;
 
@@ -22,8 +23,9 @@ app.registerExtension({
         return;
       }
 
-      // Selecting a real preset switches to edit mode and loads values
+      // Selecting a real preset switches to edit mode, clears new_preset_name
       modeWidget.value = "edit";
+      newNameWidget.value = "";
 
       try {
         populating = true;
@@ -45,6 +47,16 @@ app.registerExtension({
         populating = false;
       }
     }
+
+    // Clear new_preset_name after a save or edit execution completes
+    const origOnExecuted = node.onExecuted;
+    node.onExecuted = function (output) {
+      if (origOnExecuted) origOnExecuted.call(this, output);
+      if (output?.clear_new_name?.[0]) {
+        newNameWidget.value = "";
+        app.graph.setDirtyCanvas(true, true);
+      }
+    };
 
     // Hook into preset_name widget changes
     const origPresetCb = presetWidget.callback;

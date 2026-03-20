@@ -182,4 +182,4 @@ class PresetBuilder:
         else:
             raise RuntimeError(f"[PresetBuilder] Unknown mode: {mode}")
 
-        return {}
+        return {"ui": {"clear_new_name": [mode in ("save", "edit")]}}

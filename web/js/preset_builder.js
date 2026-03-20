@@ -48,6 +48,16 @@ app.registerExtension({
       }
     }
 
+    // Clear new_preset_name after a save or edit execution completes
+    const origOnExecuted = node.onExecuted;
+    node.onExecuted = function (output) {
+      if (origOnExecuted) origOnExecuted.call(this, output);
+      if (output?.clear_new_name?.[0]) {
+        newNameWidget.value = "";
+        app.graph.setDirtyCanvas(true, true);
+      }
+    };
+
     // Hook into preset_name widget changes
     const origPresetCb = presetWidget.callback;
     presetWidget.callback = function (...args) {

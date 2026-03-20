@@ -2,6 +2,7 @@ import json
 import os
 
 import comfy.samplers
+import comfy.sd
 import folder_paths
 
 PRESETS_FILE = os.path.join(os.path.dirname(__file__), "presets.json")
@@ -65,7 +66,9 @@ class PresetArchitect:
         }
 
     RETURN_TYPES = (
-        "STRING",
+        "MODEL",
+        "CLIP",
+        "VAE",
         "INT",
         "FLOAT",
         "INT",
@@ -75,7 +78,9 @@ class PresetArchitect:
         "STRING",
     )
     RETURN_NAMES = (
-        "checkpoint",
+        "model",
+        "clip",
+        "vae",
         "steps",
         "cfg",
         "clip_skip",
@@ -91,6 +96,22 @@ class PresetArchitect:
     def IS_CHANGED(cls, **kwargs):
         # Force re-evaluation so the preset dropdown stays current
         return float("NaN")
+
+    @staticmethod
+    def _load_checkpoint(ckpt_name: str):
+        """Load a checkpoint by filename and return (model, clip, vae)."""
+        ckpt_path = folder_paths.get_full_path("checkpoints", ckpt_name)
+        if ckpt_path is None:
+            raise RuntimeError(
+                f"[PresetArchitect] Checkpoint not found: {ckpt_name}"
+            )
+        out = comfy.sd.load_checkpoint_guess_config(
+            ckpt_path,
+            output_vae=True,
+            output_clip=True,
+        )
+        # Returns (model, clip, vae, clipvision)
+        return out[0], out[1], out[2]
 
     def execute(
         self,
@@ -116,8 +137,11 @@ class PresetArchitect:
                 )
             p = presets[preset_name]
             print(f"[PresetArchitect] Loaded preset: {preset_name}")
+            model, clip, vae = self._load_checkpoint(p["checkpoint"])
             return (
-                p["checkpoint"],
+                model,
+                clip,
+                vae,
                 p["steps"],
                 p["cfg"],
                 p["clip_skip"],
@@ -151,8 +175,11 @@ class PresetArchitect:
             }
             _save_presets(presets)
             print(f"[PresetArchitect] Saved preset: {effective_name}")
+            model, clip, vae = self._load_checkpoint(checkpoint)
             return (
-                checkpoint,
+                model,
+                clip,
+                vae,
                 steps,
                 round(cfg, 2),
                 clip_skip,
@@ -170,8 +197,12 @@ class PresetArchitect:
             del presets[preset_name]
             _save_presets(presets)
             print(f"[PresetArchitect] Deleted preset: {preset_name}")
+            # Load the currently selected checkpoint as fallback output
+            model, clip, vae = self._load_checkpoint(checkpoint)
             return (
-                "",
+                model,
+                clip,
+                vae,
                 20,
                 7.50,
                 -1,
